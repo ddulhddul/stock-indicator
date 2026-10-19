@@ -25,7 +25,7 @@
   .zones { display:flex; flex-wrap:wrap; gap:6px; font-size:12px; }
   .zones span { padding:2px 8px; border-radius:999px; border:1px solid var(--line); }
   .ok { color:var(--ok); } .warn { color:var(--warn); } .bad { color:var(--bad); }
-  .chart { height:clamp(480px, 72vh, 760px); border-top:1px solid var(--line); }
+  .chart { border-top:1px solid var(--line); }
   .card-foot { padding:8px 16px 12px; font-size:12px; color:var(--muted); }
   .card-foot a { color:inherit; }
   footer { max-width:1200px; margin:0 auto; padding:0 16px 32px; font-size:12px; color:var(--muted); }
@@ -63,6 +63,7 @@ const INDICATORS = [
 
 const dark = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches;
 const grid = document.getElementById("grid");
+const CHART_H = Math.round(Math.min(Math.max(window.innerHeight * 0.75, 520), 820));
 
 INDICATORS.forEach((ind, i) => {
   const card = document.createElement("section");
@@ -84,19 +85,18 @@ INDICATORS.forEach((ind, i) => {
   chart.className = "chart tradingview-widget-container";
   const inner = document.createElement("div");
   inner.className = "tradingview-widget-container__widget";
-  inner.style.height = "100%";
+  chart.style.height = CHART_H + "px";
+  inner.style.height = CHART_H + "px";
   chart.appendChild(inner);
   const s = document.createElement("script");
   s.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
   s.async = true;
   s.text = JSON.stringify({
-    autosize: true, symbol: ind.symbol, interval: "D", range: "12M",
+    autosize: false, width: "100%", height: CHART_H, symbol: ind.symbol, interval: "D", range: "12M",
     timezone: "Asia/Seoul", theme: dark ? "dark" : "light", style: "2",
     locale: "kr", hide_top_toolbar: false, allow_symbol_change: false,
     save_image: false, support_host: "https://www.tradingview.com"
   });
-  chart.appendChild(s);
-
   const foot = document.createElement("div");
   foot.className = "card-foot";
   foot.textContent = "심볼 " + ind.symbol;
@@ -111,6 +111,7 @@ INDICATORS.forEach((ind, i) => {
 
   card.append(head, chart, foot);
   grid.appendChild(card);
+  chart.appendChild(s); // 카드가 화면에 붙은 뒤 위젯을 그려야 크기가 맞음
 });
 </script>
 </body>
