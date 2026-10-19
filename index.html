@@ -6,49 +6,76 @@
 <title>시장 위험 지표</title>
 <style>
   :root { --bg:#f6f6f4; --panel:#ffffff; --fg:#1d1d1b; --muted:#6b6b66; --line:#e3e2dc;
-          --ok:#2f7d4f; --warn:#b7791f; --bad:#b83a3a; }
+          --ok:#2f7d4f; --warn:#b7791f; --bad:#b83a3a; --accent:#1d1d1b; --nav-h:52px; }
   @media (prefers-color-scheme: dark) {
     :root { --bg:#141413; --panel:#1f1f1d; --fg:#ececea; --muted:#9a9a94; --line:#33332f;
-            --ok:#5cb37f; --warn:#e0a648; --bad:#e06a6a; }
+            --ok:#5cb37f; --warn:#e0a648; --bad:#e06a6a; --accent:#ececea; }
   }
   * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
   body { margin:0; background:var(--bg); color:var(--fg);
          font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif; }
-  header { max-width:1200px; margin:0 auto; padding:24px 16px 8px; }
+  .wrap { max-width:960px; margin:0 auto; padding:0 16px; }
+  header { padding:24px 0 12px; }
   h1 { font-size:22px; margin:0 0 4px; }
   header p { margin:0; color:var(--muted); font-size:14px; }
-  main { max-width:1200px; margin:0 auto; padding:16px; display:grid; gap:16px;
-         grid-template-columns:repeat(auto-fill,minmax(min(100%,520px),1fr)); }
-  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+
+  nav { position:sticky; top:0; z-index:10; background:var(--bg); border-bottom:1px solid var(--line); }
+  .tabs { display:flex; gap:4px; overflow-x:auto; scrollbar-width:none; height:var(--nav-h); align-items:center; }
+  .tabs::-webkit-scrollbar { display:none; }
+  .tab { flex:0 0 auto; border:0; background:none; color:var(--muted); font:inherit; font-size:14px;
+         padding:8px 14px; border-radius:999px; cursor:pointer; white-space:nowrap; }
+  .tab[aria-current="true"] { background:var(--accent); color:var(--bg); font-weight:600; }
+
+  main { display:grid; gap:20px; padding:20px 0 40px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; overflow:hidden;
+          scroll-margin-top:calc(var(--nav-h) + 12px); }
   .card-head { padding:14px 16px 10px; }
-  .card-head h2 { font-size:16px; margin:0 0 6px; }
+  .card-head h2 { font-size:17px; margin:0 0 6px; }
   .zones { display:flex; flex-wrap:wrap; gap:6px; font-size:12px; }
   .zones span { padding:2px 8px; border-radius:999px; border:1px solid var(--line); }
   .ok { color:var(--ok); } .warn { color:var(--warn); } .bad { color:var(--bad); }
-  .chart { border-top:1px solid var(--line); }
-  .card-foot { padding:8px 16px 12px; font-size:12px; color:var(--muted); }
-  .card-foot a { color:inherit; }
+  .chart { border-top:1px solid var(--line); position:relative; }
   .baseline { padding:10px 16px 0; font-size:14px; }
   .baseline b { color:var(--warn); }
-  footer { max-width:1200px; margin:0 auto; padding:0 16px 32px; font-size:12px; color:var(--muted); }
+  .card-foot { padding:8px 16px 12px; font-size:12px; color:var(--muted); }
+  .card-foot a { color:inherit; }
+
+  .fg-now { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; padding:4px 16px 12px; }
+  .fg-score { font-size:44px; font-weight:700; line-height:1; font-variant-numeric:tabular-nums; }
+  .fg-rating { font-size:16px; font-weight:600; }
+  .fg-prev { display:flex; gap:14px; flex-wrap:wrap; font-size:13px; color:var(--muted); width:100%; }
+  .fg-prev b { color:var(--fg); font-variant-numeric:tabular-nums; }
+  .msg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+         color:var(--muted); font-size:14px; text-align:center; padding:16px; }
+  footer { padding:0 0 32px; font-size:12px; color:var(--muted); }
 </style>
 </head>
 <body>
-<header>
-  <h1>시장 위험 지표</h1>
-  <p>차트는 TradingView 실시간 위젯입니다. 기준선은 흔히 쓰는 참고 구간이며 투자 판단 기준이 아닙니다.</p>
-</header>
-<main id="grid"></main>
-<footer>지표 추가: 파일 아래쪽 INDICATORS 목록에 한 줄을 추가하세요.</footer>
+<div class="wrap">
+  <header>
+    <h1>시장 위험 지표</h1>
+    <p>기준선·구간은 참고용이며 투자 판단 기준이 아닙니다.</p>
+  </header>
+</div>
+<nav><div class="wrap tabs" id="tabs"></div></nav>
+<div class="wrap">
+  <main id="grid"></main>
+  <footer>지표 추가: 파일 아래쪽 INDICATORS 목록에 한 줄을 추가하세요.</footer>
+</div>
 
+<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 <script>
-/* ===== 지표 목록: 여기에 한 줄씩 추가하면 카드가 늘어납니다 =====
-   symbol : TradingView 심볼 (TradingView 검색창에서 확인)
-   fred   : FRED 코드 (있으면 원본 링크 표시, 없으면 null)
+/* ===== 지표 목록: 여기에 한 줄씩 추가하면 카드와 탭이 늘어납니다 =====
+   type     : "tv"(TradingView 위젯) 또는 "feargreed"(CNN 공포탐욕지수)
+   tab      : 탭에 보일 짧은 이름
+   symbol   : TradingView 심볼 (type "tv"일 때)
+   fred     : FRED 코드 (있으면 원본 링크 표시)
    baseline : 내 기준점 (차트 아래에 표시)
-   zones  : 참고 구간 [표시문구, ok|warn|bad]                         */
+   zones    : 참고 구간 [표시문구, ok|warn|bad]                          */
 const INDICATORS = [
   {
+    type: "tv", tab: "VIX",
     name: "VIX 변동성 지수",
     symbol: "FRED:VIXCLS",
     fred: "VIXCLS",
@@ -56,41 +83,79 @@ const INDICATORS = [
     zones: [["15 미만 안정","ok"],["20 이상 경계","warn"],["30 이상 공포","bad"]]
   },
   {
+    type: "tv", tab: "하이일드",
     name: "미국 하이일드 스프레드 (%)",
     symbol: "FRED:BAMLH0A0HYM2",
     fred: "BAMLH0A0HYM2",
     baseline: "3.2%",
     zones: [["3% 미만 낙관","ok"],["5% 이상 경계","warn"],["7% 이상 위기","bad"]]
   },
+  {
+    type: "feargreed", tab: "공포탐욕",
+    name: "CNN 공포·탐욕 지수 (Fear & Greed)",
+    zones: [["0–25 극단적 공포","bad"],["25–45 공포","warn"],["45–55 중립",""],["55–75 탐욕","warn"],["75–100 극단적 탐욕","bad"]]
+  },
   // 예시) 장단기 금리차:
-  // { name:"미국 10년-2년 금리차", symbol:"FRED:T10Y2Y", fred:"T10Y2Y", zones:[["0 미만 역전","warn"]] },
+  // { type:"tv", tab:"금리차", name:"미국 10년-2년 금리차", symbol:"FRED:T10Y2Y", fred:"T10Y2Y", zones:[["0 미만 역전","warn"]] },
 ];
 
 const dark = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches;
 const grid = document.getElementById("grid");
+const tabs = document.getElementById("tabs");
 const CHART_H = Math.round(Math.min(Math.max(window.innerHeight * 0.62, 440), 680));
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
 
 INDICATORS.forEach((ind, i) => {
-  const card = document.createElement("section");
-  card.className = "card";
+  const id = "ind-" + i;
+  const card = el("section", "card");
+  card.id = id;
 
-  const head = document.createElement("div");
-  head.className = "card-head";
-  const h2 = document.createElement("h2");
-  h2.textContent = ind.name;
-  const zones = document.createElement("div");
-  zones.className = "zones";
-  (ind.zones || []).forEach(([label, tone]) => {
-    const s = document.createElement("span");
-    s.className = tone; s.textContent = label; zones.appendChild(s);
-  });
-  head.append(h2, zones);
+  const head = el("div", "card-head");
+  head.appendChild(el("h2", null, ind.name));
+  const zones = el("div", "zones");
+  (ind.zones || []).forEach(([label, tone]) => zones.appendChild(el("span", tone, label)));
+  head.appendChild(zones);
+  card.appendChild(head);
 
-  const chart = document.createElement("div");
-  chart.className = "chart tradingview-widget-container";
-  const inner = document.createElement("div");
-  inner.className = "tradingview-widget-container__widget";
+  const chart = el("div", "chart");
   chart.style.height = CHART_H + "px";
+
+  const base = el("div", "baseline");
+  if (ind.baseline) {
+    base.append("내 기준점: ");
+    base.appendChild(el("b", null, ind.baseline));
+  }
+  const foot = el("div", "card-foot");
+
+  const tab = el("button", "tab", ind.tab || ind.name);
+  tab.type = "button";
+  tab.dataset.target = id;
+  tab.addEventListener("click", () => card.scrollIntoView({ behavior: "smooth", block: "start" }));
+  tabs.appendChild(tab);
+
+  if (ind.type === "feargreed") {
+    const now = el("div", "fg-now");
+    card.appendChild(now);
+    card.append(chart, base, foot);
+    grid.appendChild(card);
+    renderFearGreed(now, chart, foot);
+  } else {
+    card.append(chart, base, foot);
+    grid.appendChild(card);
+    renderTradingView(ind, chart, foot); // 카드가 화면에 붙은 뒤 그려야 크기가 맞음
+  }
+});
+
+function renderTradingView(ind, chart, foot) {
+  chart.classList.add("tradingview-widget-container");
+  const inner = el("div", "tradingview-widget-container__widget");
   inner.style.height = CHART_H + "px";
   chart.appendChild(inner);
   const s = document.createElement("script");
@@ -102,31 +167,91 @@ INDICATORS.forEach((ind, i) => {
     locale: "kr", hide_top_toolbar: false, allow_symbol_change: false,
     save_image: false, support_host: "https://www.tradingview.com"
   });
-  const base = document.createElement("div");
-  base.className = "baseline";
-  if (ind.baseline) {
-    base.append("내 기준점: ");
-    const b = document.createElement("b");
-    b.textContent = ind.baseline;
-    base.appendChild(b);
-  }
+  chart.appendChild(s);
 
-  const foot = document.createElement("div");
-  foot.className = "card-foot";
   foot.textContent = "심볼 " + ind.symbol;
   if (ind.fred) {
     foot.append(" · ");
-    const a = document.createElement("a");
+    const a = el("a", null, "FRED 원본");
     a.href = "https://fred.stlouisfed.org/series/" + ind.fred;
     a.target = "_blank"; a.rel = "noopener";
-    a.textContent = "FRED 원본";
     foot.appendChild(a);
   }
+}
 
-  card.append(head, chart, base, foot);
-  grid.appendChild(card);
-  chart.appendChild(s); // 카드가 화면에 붙은 뒤 위젯을 그려야 크기가 맞음
-});
+const FG_LABEL = { "extreme fear":"극단적 공포", "fear":"공포", "neutral":"중립", "greed":"탐욕", "extreme greed":"극단적 탐욕" };
+function fgTone(v) { return v < 25 ? "bad" : v < 45 ? "warn" : v <= 55 ? "" : v <= 75 ? "warn" : "bad"; }
+
+async function renderFearGreed(now, chart, foot) {
+  const link = el("a", null, "CNN 원본");
+  link.href = "https://edition.cnn.com/markets/fear-and-greed";
+  link.target = "_blank"; link.rel = "noopener";
+  foot.append("출처 CNN Business · ");
+  foot.appendChild(link);
+
+  const msg = el("div", "msg", "불러오는 중…");
+  chart.appendChild(msg);
+  let d;
+  try {
+    const r = await fetch("/api/feargreed");
+    d = await r.json();
+    if (!r.ok || d.error) throw new Error(d.error || r.status);
+  } catch (e) {
+    msg.textContent = "공포·탐욕 지수를 불러오지 못했습니다. CNN 원본 링크에서 확인하세요.";
+    return;
+  }
+  msg.remove();
+
+  if (Number.isFinite(d.score)) {
+    const v = Math.round(d.score);
+    now.appendChild(el("span", "fg-score " + fgTone(v), String(v)));
+    now.appendChild(el("span", "fg-rating " + fgTone(v), FG_LABEL[d.rating] || d.rating || ""));
+    const prev = el("div", "fg-prev");
+    [["전일", d.previous_close], ["1주 전", d.previous_1_week], ["1개월 전", d.previous_1_month], ["1년 전", d.previous_1_year]]
+      .forEach(([k, val]) => {
+        if (!Number.isFinite(val)) return;
+        const s = el("span", null, k + " ");
+        s.appendChild(el("b", null, String(Math.round(val))));
+        prev.appendChild(s);
+      });
+    now.appendChild(prev);
+  }
+
+  if (!window.LightweightCharts || !d.rows || !d.rows.length) {
+    chart.appendChild(el("div", "msg", "차트를 그릴 수 없습니다."));
+    return;
+  }
+  const c = LightweightCharts.createChart(chart, {
+    autoSize: true,
+    layout: { background: { color: css("--panel") }, textColor: css("--muted"), fontSize: 12 },
+    grid: { vertLines: { color: css("--line") }, horzLines: { color: css("--line") } },
+    rightPriceScale: { borderColor: css("--line"), scaleMargins: { top: 0.08, bottom: 0.08 } },
+    timeScale: { borderColor: css("--line") },
+    localization: { locale: "ko-KR" },
+    handleScroll: false, handleScale: false
+  });
+  const series = c.addLineSeries({
+    color: css("--fg"), lineWidth: 2, priceLineVisible: false,
+    autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } })
+  });
+  series.setData(d.rows);
+  c.timeScale().fitContent();
+}
+
+/* 스크롤하면 해당 탭이 선택됨 */
+const tabEls = [...tabs.querySelectorAll(".tab")];
+function setActive(id) {
+  tabEls.forEach(t => {
+    const on = t.dataset.target === id;
+    t.setAttribute("aria-current", on ? "true" : "false");
+    if (on) tabs.scrollTo({ left: t.offsetLeft - 16, behavior: "smooth" });
+  });
+}
+if (tabEls.length) setActive(tabEls[0].dataset.target);
+const io = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) setActive(e.target.id); });
+}, { rootMargin: "-30% 0px -60% 0px" });
+document.querySelectorAll(".card").forEach(c => io.observe(c));
 </script>
 </body>
 </html>
