@@ -79,7 +79,7 @@ const INDICATORS = [
     name: "VIX 변동성 지수",
     symbol: "FRED:VIXCLS",
     fred: "VIXCLS",
-    baseline: "20",
+    baseline: "20에서 꺾여서 하락할 때 매수",
     zones: [["15 미만 안정","ok"],["20 이상 경계","warn"],["30 이상 공포","bad"]]
   },
   {
@@ -87,7 +87,7 @@ const INDICATORS = [
     name: "미국 하이일드 스프레드 (%)",
     symbol: "FRED:BAMLH0A0HYM2",
     fred: "BAMLH0A0HYM2",
-    baseline: "3.2%",
+    baseline: "3.2%에서 꺾여서 하락할 때 매수",
     zones: [["3% 미만 낙관","ok"],["5% 이상 경계","warn"],["7% 이상 위기","bad"]]
   },
   {
