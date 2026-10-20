@@ -48,6 +48,17 @@
   .fg-prev b { color:var(--fg); font-variant-numeric:tabular-nums; }
   .msg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
          color:var(--muted); font-size:14px; text-align:center; padding:16px; }
+  .summary { display:grid; gap:10px; grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr)); padding:4px 0 16px; }
+  .sum { text-align:left; font:inherit; color:inherit; background:var(--panel); border:1px solid var(--line);
+         border-radius:12px; padding:12px 14px; cursor:pointer; display:flex; flex-direction:column; gap:4px; }
+  .sum:hover { border-color:var(--muted); }
+  .sum-name { font-size:13px; color:var(--muted); }
+  .sum-row { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+  .sum-val { font-size:28px; font-weight:700; line-height:1.1; font-variant-numeric:tabular-nums; }
+  .sum-chg { font-size:13px; font-variant-numeric:tabular-nums; }
+  .sum-status { font-size:13px; font-weight:600; }
+  .sum-date { font-size:11px; color:var(--muted); }
+  .up { color:var(--bad); } .down { color:var(--ok); }
   footer { padding:0 0 32px; font-size:12px; color:var(--muted); }
 </style>
 </head>
@@ -57,6 +68,7 @@
     <h1>시장 위험 지표</h1>
     <p>기준선·구간은 참고용이며 투자 판단 기준이 아닙니다.</p>
   </header>
+  <section class="summary" id="summary" aria-label="지표 요약"></section>
 </div>
 <nav><div class="wrap tabs" id="tabs"></div></nav>
 <div class="wrap">
@@ -72,6 +84,7 @@
    symbol   : TradingView 심볼 (type "tv"일 때)
    fred     : FRED 코드 (있으면 원본 링크 표시)
    baseline : 내 기준점 (차트 아래에 표시)
+   rule     : 요약 줄 판정 {level, kind:"peakFall"(기준 이상에서 꺾임) | "below"(기준 미만), unit}
    zones    : 참고 구간 [표시문구, ok|warn|bad]                          */
 const INDICATORS = [
   {
@@ -79,6 +92,7 @@ const INDICATORS = [
     name: "VIX 변동성 지수",
     symbol: "FRED:VIXCLS",
     fred: "VIXCLS",
+    rule: { level: 20, kind: "peakFall" },
     baseline: "20 이상에서 꺾여서 하락할 때 매수",
     zones: [["15 미만 안정","ok"],["20 이상 경계","warn"],["30 이상 공포","bad"]]
   },
@@ -87,6 +101,7 @@ const INDICATORS = [
     name: "미국 하이일드 스프레드 (%)",
     symbol: "FRED:BAMLH0A0HYM2",
     fred: "BAMLH0A0HYM2",
+    rule: { level: 3.2, kind: "peakFall", unit: "%" },
     baseline: "3.2% 이상에서 꺾여서 하락할 때 매수",
     zones: [["3% 미만 낙관","ok"],["5% 이상 경계","warn"],["7% 이상 위기","bad"]]
   },
@@ -94,6 +109,7 @@ const INDICATORS = [
     type: "feargreed", tab: "공포탐욕",
     name: "CNN 공포·탐욕 지수 (Fear & Greed)",
     baseline: "10 미만이면 매수",
+    rule: { level: 10, kind: "below" },
     zones: [["0–25 극단적 공포","bad"],["25–45 공포","warn"],["45–55 중립",""],["55–75 탐욕","warn"],["75–100 극단적 탐욕","bad"]]
   },
   // 예시) 장단기 금리차:
@@ -105,6 +121,16 @@ const grid = document.getElementById("grid");
 const tabs = document.getElementById("tabs");
 const CHART_H = Math.round(Math.min(Math.max(window.innerHeight * 0.41, 300), 450));
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+const _cache = {};
+function getJSON(url) {
+  if (!_cache[url]) _cache[url] = fetch(url).then(async r => {
+    const d = await r.json();
+    if (!r.ok || d.error) throw new Error(d.error || r.status);
+    return d;
+  });
+  return _cache[url];
+}
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -194,9 +220,7 @@ async function renderFearGreed(now, chart, foot) {
   chart.appendChild(msg);
   let d;
   try {
-    const r = await fetch("/api/feargreed");
-    d = await r.json();
-    if (!r.ok || d.error) throw new Error(d.error || r.status);
+    d = await getJSON("/api/feargreed");
   } catch (e) {
     msg.textContent = "공포·탐욕 지수를 불러오지 못했습니다. CNN 원본 링크에서 확인하세요.";
     return;
@@ -238,6 +262,75 @@ async function renderFearGreed(now, chart, foot) {
   series.setData(d.rows);
   c.timeScale().fitContent();
 }
+
+/* ===== 맨 위 요약 줄 ===== */
+const fmt = (v, unit) => (Math.abs(v) >= 10 ? v.toFixed(1) : v.toFixed(2)) + (unit || "");
+function judge(rule, rows) {
+  const last = rows[rows.length - 1].value;
+  const prev = rows.length > 1 ? rows[rows.length - 2].value : last;
+  const u = rule.unit || "";
+  if (rule.kind === "below") {
+    return last < rule.level
+      ? { text: "매수 구간 (" + rule.level + " 미만)", tone: "ok" }
+      : { text: "기준 " + rule.level + "까지 " + (last - rule.level).toFixed(1), tone: "" };
+  }
+  // peakFall: 최근 10거래일 고점이 기준 이상이고, 지금은 고점보다 낮고 전일보다 하락
+  const recent = rows.slice(-10).map(r => r.value);
+  const peak = Math.max(...recent);
+  if (peak >= rule.level && last < peak && last < prev) {
+    return { text: "기준 " + rule.level + u + " 이상에서 꺾임 · 고점 " + fmt(peak, u), tone: "ok" };
+  }
+  if (last >= rule.level) return { text: "기준 " + rule.level + u + " 이상 · " + (last > prev ? "상승 중" : "보합"), tone: "warn" };
+  return { text: "기준 " + rule.level + u + " 미만", tone: "" };
+}
+
+function renderSummary() {
+  const box = document.getElementById("summary");
+  INDICATORS.forEach((ind, i) => {
+    if (!ind.rule) return;
+    const b = el("button", "sum");
+    b.type = "button";
+    b.addEventListener("click", () => document.getElementById("ind-" + i).scrollIntoView({ behavior: "smooth", block: "start" }));
+    b.appendChild(el("span", "sum-name", ind.tab || ind.name));
+    const row = el("div", "sum-row");
+    const val = el("span", "sum-val", "—");
+    const chg = el("span", "sum-chg");
+    row.append(val, chg);
+    const status = el("span", "sum-status", "불러오는 중…");
+    const date = el("span", "sum-date");
+    b.append(row, status, date);
+    box.appendChild(b);
+
+    const src = ind.type === "feargreed" ? getJSON("/api/feargreed") : getJSON("/api/fred?id=" + encodeURIComponent(ind.fred));
+    src.then(d => {
+      const rows = (d.rows || []).slice();
+      if (ind.type === "feargreed" && Number.isFinite(d.score)) {
+        const today = (d.timestamp || "").slice(0, 10) || new Date().toISOString().slice(0, 10);
+        if (rows.length && rows[rows.length - 1].time === today) rows[rows.length - 1] = { time: today, value: d.score };
+        else rows.push({ time: today, value: d.score });
+      }
+      if (!rows.length) throw new Error("데이터 없음");
+      const u = ind.rule.unit || "";
+      const last = rows[rows.length - 1], prev = rows[rows.length - 2];
+      val.textContent = ind.type === "feargreed" ? String(Math.round(last.value)) : fmt(last.value, u);
+      if (prev) {
+        const diff = last.value - prev.value;
+        chg.textContent = (diff > 0 ? "▲" : diff < 0 ? "▼" : "") + Math.abs(diff).toFixed(ind.type === "feargreed" ? 1 : 2) + " 전일 대비";
+        // VIX·스프레드는 오르면 위험(빨강), 공포탐욕은 내리면 공포 쪽
+        const risky = ind.type === "feargreed" ? diff < 0 : diff > 0;
+        chg.className = "sum-chg " + (diff === 0 ? "" : risky ? "up" : "down");
+      }
+      const j = judge(ind.rule, rows);
+      status.textContent = j.text;
+      status.className = "sum-status " + j.tone;
+      date.textContent = last.time + " 기준";
+    }).catch(() => {
+      status.textContent = "불러오지 못함";
+      status.className = "sum-status";
+    });
+  });
+}
+renderSummary();
 
 /* 스크롤하면 해당 탭이 선택됨 */
 const tabEls = [...tabs.querySelectorAll(".tab")];
