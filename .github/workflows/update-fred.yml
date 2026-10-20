@@ -1,0 +1,35 @@
+name: FRED 데이터 갱신
+
+on:
+  schedule:
+    - cron: "15 14 * * 1-6"   # 한국 23:15 (FRED 오전 업데이트 이후)
+    - cron: "15 23 * * 1-5"   # 한국 08:15
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["index.html", "scripts/update-fred.mjs", ".github/workflows/update-fred.yml"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-fred
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node scripts/update-fred.mjs
+      - name: 바뀐 데이터 커밋
+        run: |
+          git add data
+          if git diff --cached --quiet; then echo "변경 없음"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git commit -m "FRED 데이터 갱신 $(date -u +%Y-%m-%d)"
+          git push

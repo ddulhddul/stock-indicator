@@ -25,7 +25,7 @@ module.exports = async (req, res) => {
   }
   res.status(q.debug ? 200 : 502).json({ error: errors.join(" / ") });
 };
-module.exports.config = { maxDuration: 30 };
+module.exports.config = { maxDuration: 15 };
 
 async function get(url, ms) {
   const r = await fetch(url, { headers: { "User-Agent": UA, "Accept": "text/csv,*/*" }, signal: AbortSignal.timeout(ms) });
@@ -36,7 +36,7 @@ async function get(url, ms) {
 async function fred(id) {
   const start = new Date();
   start.setDate(start.getDate() - 100);
-  const text = await get(`https://fred.stlouisfed.org/graph/fredgraph.csv?id=${id}&cosd=${start.toISOString().slice(0, 10)}`, 25000)
+  const text = await get(`https://fred.stlouisfed.org/graph/fredgraph.csv?id=${id}&cosd=${start.toISOString().slice(0, 10)}`, 8000)
     .catch(e => { throw new Error("FRED: " + (e.name === "TimeoutError" ? "시간 초과" : e.message)); });
   return { source: "FRED", rows: parseCsv(text, 0, 1) };
 }

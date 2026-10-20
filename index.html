@@ -301,7 +301,11 @@ function renderSummary() {
     b.append(row, status, date);
     box.appendChild(b);
 
-    const src = ind.type === "feargreed" ? getJSON("/api/feargreed") : getJSON("/api/fred?id=" + encodeURIComponent(ind.fred));
+    // FRED 지표: GitHub Actions가 저장한 data/<코드>.json 우선, 없으면 서버 함수(/api/fred)
+    const src = ind.type === "feargreed" ? getJSON("/api/feargreed")
+      : ind.fred === "VIXCLS" ? getJSON("/api/fred?id=VIXCLS")
+      : getJSON("/data/" + ind.fred + ".json?d=" + new Date().toISOString().slice(0, 13))
+          .catch(() => getJSON("/api/fred?id=" + encodeURIComponent(ind.fred)));
     src.then(d => {
       const rows = (d.rows || []).slice();
       if (ind.type === "feargreed" && Number.isFinite(d.score)) {
