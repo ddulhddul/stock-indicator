@@ -10,14 +10,18 @@ module.exports = async (req, res) => {
   start.setDate(start.getDate() - 100);
   const url = `https://fred.stlouisfed.org/graph/fredgraph.csv?id=${id}&cosd=${start.toISOString().slice(0, 10)}`;
   try {
-    const r = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 stock-indicator-dashboard" } });
+    const r = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36", "Accept": "text/csv,*/*" },
+      signal: AbortSignal.timeout(8000)
+    });
     if (!r.ok) throw new Error("FRED 응답 " + r.status);
     const rows = parseCsv(await r.text());
     if (!rows.length) throw new Error("데이터 없음");
     res.setHeader("Cache-Control", "s-maxage=1800, stale-while-revalidate=86400");
     res.status(200).json({ id, rows });
   } catch (e) {
-    res.status(502).json({ error: String(e.message || e) });
+    const dbg = req.query && req.query.debug;
+    res.status(dbg ? 200 : 502).json({ error: String(e.message || e), cause: String((e.cause && (e.cause.code || e.cause.message)) || "") });
   }
 };
 
