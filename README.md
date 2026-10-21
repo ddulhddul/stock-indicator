@@ -16,7 +16,8 @@
   - VIX: `/api/fred?id=VIXCLS` → CBOE 공식 CSV (FRED보다 하루 빠름)
   - 공포탐욕: `/api/feargreed` → CNN
   - 그 밖의 FRED 지표(하이일드 등): `data/<FRED코드>.json`. Vercel 서버에서는 FRED 접속이 시간 초과로 막혀 있어서, **GitHub Actions**(`.github/workflows/update-fred.yml`)가 하루 두 번(한국 08:15·23:15) FRED에서 받아 커밋합니다. 커밋되면 Vercel이 자동으로 다시 배포합니다.
-  - `index.html`에 `fred: "코드"`가 있는 지표는 Actions가 자동으로 받아 옵니다. 새 FRED 지표를 추가하면 push할 때 Actions가 한 번 바로 실행됩니다.
+  - Actions는 최근 6년치를 받아, 일간 지표는 최근 70개만, 월간 지표(CPI 등)는 전부 저장합니다.
+  - `index.html`에 `fred: "코드"`(또는 `fredCore:` 같은 `fred…` 필드)가 있는 지표는 Actions가 자동으로 받아 옵니다. 새 FRED 지표를 추가하면 push할 때 Actions가 한 번 바로 실행됩니다.
 
 ## 지표와 내 기준점
 
@@ -25,6 +26,7 @@
 | VIX | VIX 변동성 지수 | TradingView 위젯 `FRED:VIXCLS` (일별 종가) | 20 이상에서 꺾여서 하락할 때 매수 |
 | 하이일드 | 미국 하이일드 스프레드 | TradingView 위젯 `FRED:BAMLH0A0HYM2` | 3.2% 이상에서 꺾여서 하락할 때 매수 |
 | 공포탐욕 | CNN 공포·탐욕 지수 | `/api/feargreed` (CNN 데이터) → 직접 차트 | 10 미만이면 매수 |
+| CPI | 미국 소비자물가 상승률 (전년 대비 %) | `data/CPIAUCSL.json`(헤드라인)·`data/CPILFESL.json`(근원) → 전년 같은 달 대비로 계산해 직접 차트 | (아직 없음) |
 
 - 기준점은 각 차트 아래에 문구로만 표시합니다. 차트 위에 선은 긋지 않습니다.
 - 참고 구간(VIX 15·20·30, 스프레드 3·5·7%, 공포탐욕 25·45·55·75)은 카드 위쪽에 칩으로 표시합니다.
@@ -59,11 +61,13 @@ data/              FRED 저장본 (Actions가 자동 관리, 직접 수정하지
 
 | 필드 | 설명 |
 |---|---|
-| `type` | `"tv"`(TradingView 위젯) 또는 `"feargreed"`(전용 카드) |
+| `type` | `"tv"`(TradingView 위젯), `"feargreed"`(전용 카드), `"cpi"`(FRED 월간 지수 → 전년 대비 %) |
 | `tab` | 탭에 보일 짧은 이름 |
 | `name` | 카드 제목 |
 | `symbol` | TradingView 심볼 (`type: "tv"`일 때) |
-| `fred` | FRED 코드 (있으면 원본 링크 표시) |
+| `fred` | FRED 코드 (있으면 원본 링크 표시, Actions가 자동으로 받음) |
+| `fredCore` 등 `fred…` | 보조 FRED 코드 (Actions가 같이 받음. CPI의 근원 지수) |
+| `summary` | `true`면 `rule` 없이도 요약 줄에 값만 표시 |
 | `baseline` | 내 기준점 문구 (차트 아래에 표시) |
 | `rule` | 요약 줄 판정 `{level, kind:"peakFall"\|"below", unit}` (없으면 요약 줄에 안 나옴) |
 | `zones` | 참고 구간 `[문구, "ok"\|"warn"\|"bad"]` |
