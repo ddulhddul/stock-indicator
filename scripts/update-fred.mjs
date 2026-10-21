@@ -4,11 +4,11 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 
 const SKIP = new Set(["VIXCLS"]); // VIX는 /api/fred가 CBOE에서 직접 받음
 const html = readFileSync("index.html", "utf8");
-const ids = [...new Set([...html.matchAll(/^\s*fred:\s*"([A-Z0-9_]+)"/gm)].map(m => m[1]))].filter(id => !SKIP.has(id));
+const ids = [...new Set([...html.matchAll(/^\s*fred\w*:\s*"([A-Z0-9_]+)"/gm)].map(m => m[1]))].filter(id => !SKIP.has(id));
 mkdirSync("data", { recursive: true });
 
 const start = new Date();
-start.setDate(start.getDate() - 100);
+start.setFullYear(start.getFullYear() - 6); // 월간 지표 전년 대비 계산용으로 넉넉히
 let failed = 0;
 for (const id of ids) {
   try {
@@ -22,7 +22,10 @@ for (const id of ids) {
       if (/^\d{4}-\d{2}-\d{2}$/.test(time) && raw && raw !== "." && Number.isFinite(value)) rows.push({ time, value });
     }
     if (!rows.length) throw new Error("데이터 없음");
-    writeFileSync(`data/${id}.json`, JSON.stringify({ id, source: "FRED", rows: rows.slice(-70) }) + "\n");
+    // 일간 지표는 최근 70개만, 월간·분기 지표(간격 20일 이상)는 전부 저장
+    const gap = rows.length > 1 ? (Date.parse(rows[rows.length - 1].time) - Date.parse(rows[rows.length - 2].time)) / 864e5 : 0;
+    const keep = gap >= 20 ? rows : rows.slice(-70);
+    writeFileSync(`data/${id}.json`, JSON.stringify({ id, source: "FRED", rows: keep }) + "\n");
     console.log(id, rows.length, "rows, last", rows[rows.length - 1]);
   } catch (e) {
     failed++;
