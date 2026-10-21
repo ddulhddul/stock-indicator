@@ -70,6 +70,7 @@ data/              FRED 저장본 (Actions가 자동 관리, 직접 수정하지
 | `summary` | `true`면 `rule` 없이도 요약 줄에 값만 표시 |
 | `baseline` | 내 기준점 문구 (차트 아래에 표시) |
 | `rule` | 요약 줄 판정 `{level, kind:"peakFall"\|"below", unit}` (없으면 요약 줄에 안 나옴) |
+| `releases` | 발표 일정 `[[대상월, 발표시각 ISO]]` (CPI). 다음 발표일과 D-day를 카드·요약 칩에 표시 |
 | `zones` | 참고 구간 `[문구, "ok"\|"warn"\|"bad"]` |
 
 ## 알아둘 점 (지금까지 확인한 것)
@@ -79,6 +80,7 @@ data/              FRED 저장본 (Actions가 자동 관리, 직접 수정하지
 - 위젯은 카드가 화면에 붙은 뒤에 로드해야 크기가 맞습니다. 그래서 높이를 픽셀로 고정했습니다.
 - FRED의 하이일드 스프레드는 최근 약 3년치만 제공됩니다.
 - Vercel 서버 함수에서 `fred.stlouisfed.org` 접속은 응답이 없어 시간 초과됩니다. 그래서 FRED 값은 GitHub Actions로 받습니다.
+- CPI 다음 발표일은 BLS 공식 일정(https://www.bls.gov/schedule/news_release/cpi.htm)을 `releases`에 직접 적어 둔 것입니다. 지금은 2027년 12월 10일(11월분)까지 들어 있으니, 그 전에 다음 해 일정을 추가해야 합니다. 목록이 끝나면 "일정 확인 필요"가 뜹니다.
 - CNN 공포·탐욕 데이터는 비공식 경로(`production.dataviz.cnn.io`)라 CNN이 바꾸면 끊길 수 있습니다. 그러면 카드에 "불러오지 못했습니다"가 뜹니다.
 - TradingView나 FRED에 없는 지표는 `api/`에 Vercel 서버 함수를 만들어 데이터를 받고, lightweight-charts(4.2.0)로 직접 그립니다. 공포·탐욕 카드가 그 예시입니다.
 
