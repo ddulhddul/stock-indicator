@@ -12,9 +12,7 @@ start.setFullYear(start.getFullYear() - 6); // 월간 지표 전년 대비 계�
 let failed = 0;
 for (const id of ids) {
   try {
-    const r = await fetch(`https://fred.stlouisfed.org/graph/fredgraph.csv?id=${id}&cosd=${start.toISOString().slice(0, 10)}`,
-      { headers: { "User-Agent": "Mozilla/5.0 stock-indicator (GitHub Actions)" }, signal: AbortSignal.timeout(60000) });
-    if (!r.ok) throw new Error("HTTP " + r.status);
+    const r = await fetchRetry(`https://fred.stlouisfed.org/graph/fredgraph.csv?id=${id}&cosd=${start.toISOString().slice(0, 10)}`);
     const rows = [];
     for (const line of (await r.text()).trim().split(/\r?\n/).slice(1)) {
       const [time, raw] = line.split(",");
@@ -32,4 +30,18 @@ for (const id of ids) {
     console.error(id, "실패:", e.message);
   }
 }
-if (failed === ids.length && ids.length) process.exit(1);
+// 실패해도 기존 저장본을 그대로 두고 정상 종료 (다음 실행에서 다시 시도)
+if (failed) console.warn(`경고: ${failed}/${ids.length}개 지표를 받지 못했습니다. 기존 저장본을 유지합니다.`);
+
+async function fetchRetry(url) {
+  let last;
+  for (let i = 0; i < 3; i++) {
+    try {
+      const r = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 stock-indicator (GitHub Actions)" }, signal: AbortSignal.timeout(60000) });
+      if (r.ok) return r;
+      last = new Error("HTTP " + r.status);
+    } catch (e) { last = e; }
+    await new Promise(res => setTimeout(res, 5000 * (i + 1)));
+  }
+  throw last;
+}
