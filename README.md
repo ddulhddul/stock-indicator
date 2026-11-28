@@ -16,7 +16,7 @@
   - VIX: `/api/fred?id=VIXCLS` → CBOE 공식 CSV (FRED보다 하루 빠름)
   - 공포탐욕: `/api/feargreed` → CNN
   - 그 밖의 FRED 지표(하이일드 등): `data/<FRED코드>.json`. Vercel 서버에서는 FRED 접속이 시간 초과로 막혀 있어서, **GitHub Actions**(`.github/workflows/update-fred.yml`)가 하루 두 번(한국 08:15·23:15) FRED에서 받아 커밋합니다. 커밋되면 Vercel이 자동으로 다시 배포합니다.
-  - Actions는 최근 6년치를 받아, 일간 지표는 최근 70개만, 월간 지표(CPI 등)는 전부 저장합니다.
+  - Actions는 최근 40년치를 받아, 일간 지표는 최근 70개만, 월간 지표(CPI 등)는 전부 저장합니다.
   - `index.html`에 `fred: "코드"`(또는 `fredCore:` 같은 `fred…` 필드)가 있는 지표는 Actions가 자동으로 받아 옵니다. 새 FRED 지표를 추가하면 push할 때 Actions가 한 번 바로 실행됩니다.
 
 ## 지표와 내 기준점
@@ -26,6 +26,7 @@
 | VIX | VIX 변동성 지수 | TradingView 위젯 `FRED:VIXCLS` (일별 종가) | 20 이상에서 꺾여서 하락할 때 매수 |
 | 하이일드 | 미국 하이일드 스프레드 | TradingView 위젯 `FRED:BAMLH0A0HYM2` | 3.2% 이상에서 꺾여서 하락할 때 매수 |
 | 공포탐욕 | CNN 공포·탐욕 지수 | `/api/feargreed` (CNN 데이터) → 직접 차트 | 10 미만이면 매수 |
+| 버핏지수 | 미국 주식 시가총액 ÷ GDP (%) | `data/NCBEILQ027S.json`(연준 Z.1 비금융기업 주식 시가총액) ÷ `data/GDP.json` → 직접 차트, 분기 | 과열 기준(버핏): 200% 근접 과열 · 100% 이상 고평가 · 70~80% 매수 적기 |
 | CPI | 미국 소비자물가 상승률 (전년 대비 %) | `data/CPIAUCSL.json`(헤드라인)·`data/CPILFESL.json`(근원) → 전년 같은 달 대비로 계산해 직접 차트 | (아직 없음) |
 
 - 기준점은 각 차트 아래에 문구로만 표시합니다. 차트 위에 선은 긋지 않습니다.
@@ -69,7 +70,8 @@ data/              FRED 저장본 (Actions가 자동 관리, 직접 수정하지
 | `fredCore` 등 `fred…` | 보조 FRED 코드 (Actions가 같이 받음. CPI의 근원 지수) |
 | `summary` | `true`면 `rule` 없이도 요약 줄에 값만 표시 |
 | `baseline` | 내 기준점 문구 (차트 아래에 표시) |
-| `rule` | 요약 줄 판정 `{level, kind:"peakFall"\|"below", unit}` (없으면 요약 줄에 안 나옴) |
+| `baselineLabel` | 기준 문구 앞 이름 (기본 "내 기준점", 버핏지수는 "과열 기준") |
+| `rule` | 요약 줄 판정 `{level, kind:"peakFall"\|"below"\|"bands", unit}` (`bands`: 버핏지수 과열 단계) (없으면 요약 줄에 안 나옴) |
 | `releases` | 발표 일정 `[[대상월, 발표시각 ISO]]` (CPI). 다음 발표일과 D-day를 카드·요약 칩에 표시 |
 | `zones` | 참고 구간 `[문구, "ok"\|"warn"\|"bad"]` |
 
@@ -81,6 +83,7 @@ data/              FRED 저장본 (Actions가 자동 관리, 직접 수정하지
 - FRED의 하이일드 스프레드는 최근 약 3년치만 제공됩니다.
 - Vercel 서버 함수에서 `fred.stlouisfed.org` 접속은 응답이 없어 시간 초과됩니다. 그래서 FRED 값은 GitHub Actions로 받습니다.
 - CPI 다음 발표일은 BLS 공식 일정(https://www.bls.gov/schedule/news_release/cpi.htm)을 `releases`에 직접 적어 둔 것입니다. 지금은 2027년 12월 10일(11월분)까지 들어 있으니, 그 전에 다음 해 일정을 추가해야 합니다. 목록이 끝나면 "일정 확인 필요"가 뜹니다.
+- 버핏지수는 Wilshire 5000 대신 연준 Z.1의 비금융기업 주식 시가총액(NCBEILQ027S)을 씁니다(Wilshire 시리즈는 FRED에서 내려감). 이 기준으로 닷컴 버블 고점은 162.6%(2000년 1분기)라서, 흔히 인용되는 다른 계산 방식과 숫자가 조금 다를 수 있습니다. 분기 자료라 2~3개월 늦습니다.
 - CNN 공포·탐욕 데이터는 비공식 경로(`production.dataviz.cnn.io`)라 CNN이 바꾸면 끊길 수 있습니다. 그러면 카드에 "불러오지 못했습니다"가 뜹니다.
 - TradingView나 FRED에 없는 지표는 `api/`에 Vercel 서버 함수를 만들어 데이터를 받고, lightweight-charts(4.2.0)로 직접 그립니다. 공포·탐욕 카드가 그 예시입니다.
 

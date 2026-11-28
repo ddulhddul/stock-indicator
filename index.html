@@ -76,7 +76,7 @@
 <nav><div class="wrap tabs" id="tabs"></div></nav>
 <div class="wrap">
   <main id="grid"></main>
-  <footer>지표 추가: 파일 아래쪽 INDICATORS 목록에 한 줄을 추가하세요. · 버전 1022-0050</footer>
+  <footer>지표 추가: 파일 아래쪽 INDICATORS 목록에 한 줄을 추가하세요. · 버전 1128-1800</footer>
 </div>
 
 <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
@@ -140,7 +140,8 @@ const INDICATORS = [
     name: "버핏지수 (미국 주식 시가총액 ÷ GDP, %)",
     fred: "NCBEILQ027S",    // 미국 비금융기업 주식 시가총액 (연준 Z.1, 분기, 백만 달러)
     fredGdp: "GDP",          // 미국 명목 GDP (분기, 연율, 십억 달러)
-    baseline: "과열 기준: 200%에 가까워지면 과열(버핏: \"불장난\") · 100% 이상 고평가 · 70~80%면 매수 적기",
+    baselineLabel: "과열 기준",
+    baseline: "200%에 가까워지면 과열(버핏: \"불장난\") · 100% 이상 고평가 · 70~80%면 매수 적기",
     rule: { kind: "bands", unit: "%" },
     zones: [["80% 이하 매수 적기","ok"],["100% 이상 고평가","warn"],["200% 근접 과열","bad"]]
   },
@@ -188,7 +189,7 @@ INDICATORS.forEach((ind, i) => {
 
   const base = el("div", "baseline");
   if (ind.baseline) {
-    base.append("내 기준점: ");
+    base.append((ind.baselineLabel || "내 기준점") + ": ");
     base.appendChild(el("b", null, ind.baseline));
   }
   const foot = el("div", "card-foot");
