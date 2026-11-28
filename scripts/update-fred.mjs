@@ -8,7 +8,7 @@ const ids = [...new Set([...html.matchAll(/^\s*fred\w*:\s*"([A-Z0-9_]+)"/gm)].ma
 mkdirSync("data", { recursive: true });
 
 const start = new Date();
-start.setFullYear(start.getFullYear() - 6); // 월간 지표 전년 대비 계산용으로 넉넉히
+start.setFullYear(start.getFullYear() - 40); // 버핏지수 장기 비교(닷컴 버블 등)용으로 넉넉히. 일간 지표는 아래에서 최근 70개만 저장
 let failed = 0;
 for (const id of ids) {
   try {
